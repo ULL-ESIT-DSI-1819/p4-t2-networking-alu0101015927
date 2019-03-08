@@ -93,6 +93,78 @@ Los sockets TCP son útiles para la comunicación entre equipos conectados en re
 Modificaremos el programa net-watcher para ver como funciona el módulo de red que usan los sockets de Unix.
 Estos solo funcionan en entornos similares a Unix.
 
-Cambianos .linten por 	.listen('/tmp/watcher.sock', () => console.log('Listening for subscribers...'));
+Cambianos .linten por .listen('/tmp/watcher.sock', () => console.log('Listening for subscribers...'));
 
 Si obtiene un error que contiene EADDRINUSE, es posible que deba eliminar watcher.sock antes de ejecutar el programa nuevamente.
+
+Para conectar un cliente podemos usar nc pero esta vez especificando la marca -U para usar el archivo de socket.
+
+![imagen watcher.sock](src/watcher-sock.png)
+
+Los sockets Unix pueden ser más rápidos que los sockets TCP porque no requieren invocar hardware de red. Sin embargo, por naturaleza están confinados a la máquina.
+
+### Implementando un protocolo de mensajeria
+
+Un protocolo es un conjunto de reglas que define cómo se comunican los puntos finales en un sistema. Cada vez que desarrolle una aplicación en red en Node.js, estará trabajando con uno o más protocolos. Crearemos un protocolo basado en pasar mensajes JSON a través de TCP.
+
+JSON es increíblemente frecuente en Node.js. Lo utilizaremos ampliamente para la serialización y configuración de datos. Es mucho más fácil programar a los clientes en comparación con el texto simple, y aún es legible para los humanos.
+
+Implementaremos puntos finales de cliente y servidor que usen nuestro nuevo protocolo basado en JSON. Esto nos dará la oportunidad de desarrollar casos de prueba y refactorizar nuestro código en módulos reutilizables.
+
+#### Serialización de mensajes JSON
+
+Vamos a desarrollar el protocolo de paso de mensajes que utiliza JSON para serializar los mensajes. Cada mensaje es un objeto serializado JSON, que es un hash de pares clave-valor. Aquí hay un ejemplo de objeto JSON con dos pares clave-valor:
+{"Clave": "valor", "anotherKey": "anotherValue"}
+
+El servicio net-watcher que hemos estado desarrollando envía dos tipos de mensajes que necesitamos convertir a JSON:
+
+ - Cuando se establece la conexión por primera vez, el cliente recibe la cadena.  
+ Ahora mira "target.txt" para ver si hay cambios ...
+
+ - Cuando el archivo de destino cambia, el cliente recibe una cadena como esta: 
+ Archivo cambiado: viernes 18 de diciembre de 2015 05:44:00 GMT-0500 (EST).
+
+Codificaremos el primer tipo de mensaje de esta manera:
+{"Tipo": "viendo", "archivo": "target.txt"}
+
+El campo de tipo indica que este es un mensaje de observación: el archivo especificado ahora se está viendo.
+
+El segundo tipo de mensaje se codifica de esta manera:
+{"Tipo": "cambiado", "marca de tiempo": 1358175733785}
+
+Aquí el campo de tipo anuncia que el archivo de destino ha cambiado. El campo de marca de tiempo contiene un valor entero que representa el número de milisegundos desde la medianoche del 1 de enero de 1970. Este es un formato de hora fácil para trabajar en JavaScript. Por ejemplo, puede obtener la hora actual en este formato con Date.now.
+
+No hay saltos de línea en nuestros mensajes JSON. Aunque JSON es independiente del espacio en blanco (ignora los espacios en blanco que están fuera de los valores de cadena), nuestro protocolo utilizará nuevas líneas solo para separar los mensajes. Nos referiremos a este protocolo como JSON delimitado por líneas (LDJ).
+
+#### Cambiando a mensajes JSON
+
+Ahora que hemos definido un protocolo mejorado y accesible por computadora, modifiquemos el servicio de net-watcher para usarlo. Luego crearemos programas cliente que recibirán e interpretarán estos mensajes.
+
+Nuestra tarea es usar JSON.stringify para codificar objetos de mensaje y enviarlos a través de connection.write. JSON.stringify toma un objeto de JavaScript y devuelve una cadena que contiene una representación serializada de ese objeto en forma JSON.
+
+En nuestro programa net-watcher.js reemplazaremos la línea:
+Connection.write (`Ahora mira" $ {filename} "para ver los cambios ... \ n`);
+
+por:
+Connection.write (JSON.stringify ({type: 'watching', file: filename)) + '\ n');
+
+Tambien reemplazaremos la llamada a connection.write dentro del observador:
+Vigilante de const =
+Fs.watch (filename, () => connection.write (`Archivo cambiado: $ {new Date ()} \ n`));
+
+por lo siguiente:
+Const watcher = fs.watch (nombre de archivo, () => connection.write (
+JSON.stringify ({type: 'changed', timestamp: Date.now ()}) + '\ n'));
+
+Ejecutaremos este nuevo fichero de la siguiente manera: 
+$ Node net-watcher-json-service.js target.txt
+Escuchando a los suscriptores ...
+
+Luego nos conectaremos usando netcat desde un segundo terminal:
+$ Nc localhost 60300
+{"Tipo": "viendo", "archivo": "target.txt"}
+
+Cuando tocas el archivo target.txt, verás una salida como esta de tu cliente:
+{"Tipo": "cambiado", "marca de tiempo": 1450437616760}
+
+Ahora estamos listos para escribir un programa cliente que procesa estos mensajes.
