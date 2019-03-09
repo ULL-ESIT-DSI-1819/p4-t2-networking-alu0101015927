@@ -259,3 +259,31 @@ El error 'Unexpected token t' nos dice que el mensaje no fue completo y JSON vá
 
 Hemos simulado con éxito el caso de un mensaje dividido proveniente del servidor. 
 
+
+### Ampliación de clases principales en módulos personalizados
+
+El programa Node.js de la sección anterior expuso una falla en nuestro código de cliente; a saber, que no amortigua sus entradas. Cualquier mensaje que llegue como múltiples eventos de datos lo bloqueará.
+
+Así que realmente el programa cliente tiene dos tareas que hacer. Una es almacenar los datos entrantes en mensajes. La otra es manejar cada mensaje cuando llega.
+
+En lugar de agrupar estos dos trabajos en un programa Node.js, lo correcto es convertir al menos uno de ellos en un módulo Node.js. Crearemos un módulo que maneje la parte del buffer de entrada para que el programa principal pueda recibir mensajes completos de manera confiable. A lo largo del camino, tendremos que hablar sobre los módulos personalizados y la extensión de las clases centrales en Node.
+
+#### Extendiendo EventEmitter
+
+Para liberar al programa cliente del peligro de dividir los mensajes JSON, implementaremos un módulo de cliente de búfer LDJ. Luego lo incorporaremos al cliente de Network Watcher.
+
+##### Herencia en el nodo
+
+Primero veamos cómo Node.js hace la herencia. El siguiente código configura LDJClient para heredar de EventEmitter.
+
+``` Javascript
+
+	​const​ EventEmitter = require(​'events'​).EventEmitter;
+	​class​ LDJClient ​extends​ EventEmitter {
+		​constructor​(stream) {
+			​super​();
+		}
+	}
+
+```
+
