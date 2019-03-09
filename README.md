@@ -447,6 +447,168 @@ Luego, en un terminal diferente, usamos el nuevo cliente para conectarnos a él:
 
 Ahora tenemos un servidor y un cliente que utilizan un formato de mensaje personalizado para comunicarse de manera confiable. 
 
+### Desarrollando Pruebas Unitarias con Mocha
+
+Mocha es un popular marco de prueba multiparadigma para Node.js. Cuenta con varios estilos diferentes para describir sus pruebas. Usaremos el estilo de desarrollo dirigido por el comportamiento (BDD).
+
+#### Instalando Mocha con npm
+
+npm se basa en un archivo de configuración llamado package.json, con lo que debemos crearnos uno. Abra un terminal en el proyecto y ejecutamos lo siguiente:
+
+	$ Npm init -y
+
+Instalamos Mocha ejecutando:
+
+	$ npm install --save-dev --save-exact mocha@3.4.2
+	npm notice created a lockfile as package-lock.json. You should commit this file.
+	npm WARN networking@1.0.0 No description
+	npm WARN networking@1.0.0 No repository field.
+
+	+ mocha@3.4.2
+	added 34 packages in 2.348s
+
+Podemos apreciar como npm nos sugiere que agreguemos algunos campos descriptivos a su package.json.
+
+Cuando el comando termine, habrá hecho algunos cambios. Tendremos un directorio llamado node_modules en el proyecto, que contiene Mocha y sus dependencias. En el archivo package.json encontraremos una sección devDependencies como la siguiente:
+
+	"DevDependencies": {
+	"Mocha": "3.4.2"
+	}
+
+En Node.js, hay algunos tipos diferentes de dependencias. Las dependencias regulares se usan en tiempo de ejecución por su código, cuando se utilizan requieren traer módulos. Las dependencias de desarrollo son programas que su proyecto necesita durante el desarrollo. Mocha es el último tipo, y el distintivo --save-dev (-D para abreviar) le dice a npm que lo agregue a la lista de dependencias.
+
+Tanto las dependencias de desarrollo como las dependencias de tiempo de ejecución normales se instalan cuando ejecutamos npm install sin argumentos adicionales. Podemos específicar solo las dependencias de tiempo de ejecución normales y no las dependencias de desarrollo con el indicador --production, o estableciendo la variable de entorno NODE_ENV en producción.
+
+npm también crea un archivo llamado package-lock.json. Este archivo contiene la versión exacta de cada módulo del que depende Mocha, transitivamente.
+
+#### Versiones semánticas de paquetes
+
+El indicador --save-exact (o -E) le dice a npm que queremos la versión especificada, en este caso 3.4.2. De forma predeterminada, npm utilizará la versión semántica (o SemVer) para tratar de encontrar la mejor versión disponible y compatible de un paquete.
+
+El control de versiones semántico es una convención sólida en la comunidad Node.js, que definitivamente debe seguir al establecer números de versión en sus paquetes. Un número de versión consta de tres partes unidas por puntos: la versión principal, la versión secundaria y el parche.
+
+Para cumplir con la convención de versiones semánticas, cuando realicamos un cambio en el código, hay que incrementar la parte correcta del número de versión:
+
+- Si el cambio de código no introduce ni elimina ninguna funcionalidad (como una corrección de errores), solo incrementamos la versión del parche.
+
+- Si el código introduce funcionalidad pero no elimina ni modifica la funcionalidad existente, entonces incrementamos la versión secundaria y reiniciamos el parche.
+
+- Si el código de alguna manera rompe la funcionalidad existente, entonces incrementamos la versión principal y reiniciamos las versiones secundaria y parche.
+
+Podemos omitir el indicador --save-exact para que npm obtenga la versión más cercana. Incluso podemos omitir el número de versión por completo al ejecutar la instalación de npm, en cuyo caso npm mostrará la última versión publicada.
+
+Si no marcamos la opción --save-exact cuando instalamos un módulo a través de npm, agregará el número de versión con un símbolo de intercalación (^) en package.json. Esto significa que npm usará la última versión minor mayor o igual a la que especificamos ya que las versiones con un mayor mas grande podrían no ser compatibles. Las versiones secundarias solo pueden agregar nuevas funcionalidades sin romper las funcionalidades existentes.
+
+El carácter de prefijo tilde (~) se utiliza para tener un margen de maniobra pero siendo un poco más estricto. Prefijar con ~ es algo más seguro que prefijar con ^ porque las personas son algo menos propensas a introducir cambios de última hora en las versiones de parches.
+
+Aunque la versión de versión semántica ha sido ampliamente adoptada por la comunidad, los autores y autoras a veces hacen cambios de última hora en versiones menores y parches antes de la versión principal 1. npm ignora los ceros iniciales cuando se trata de averiguar qué versión usar para los números de versión con prefijo de careta y tilde.
+
+Es aconsejable siempre usar --save-exact cuando instalemos paquetes. El inconveniente es que tendremos que actualizar explícitamente los números de versión de los paquetes de los que depende para obtener versiones más nuevas. Pero al menos podemos abordar esto en lugar de tener una ruptura sorpresiva introducida por una dependencia ascendente que no controlamos.
+
+Por otro lado, incluso si gestionamos meticulosamente nuestras dependencias directas con --save-exact, esas dependencias pueden no ser tan estrictas en nuestras propias dependencias. Es por esto que el paquete-lock.json es tan importante. Cementa las versiones de todo el árbol de dependencias, incluidas las sumas de comprobación.
+
+Si realmente quemos tener archivos idénticos en el disco de una instalación a la siguiente, debemos enviar el paquete-lock.json al sistema de control de versiones. Cuando esté listo para realizar actualizaciones, usaremos npm desactualizado para obtener un informe que muestre cuál de los módulos de los que depende tiene versiones actualizadas. Luego, cuando instalemos la última versión de un módulo, su paquete-lock.json tendrá el árbol recién actualizado.
+
+Al confirmar el paquete-lock.json a medida que desarrollamos nuestro proyecto, crearemos un seguimiento de auditoría que nos permitirá ejecutar exactamente la misma pila de códigos desde cualquier punto en el pasado. Este puede ser un recurso invaluable cuando se trata de rastrear errores, ya sea que estén en nuestro propio código o en nuestras dependencias.
+
+#### Pruebas de unidad de moca de escritura
+
+Con Mocha instalado, ahora desarrollaremos una prueba unitaria que lo utiliza.
+
+Creamos un subdirectorio llamado test para contener el código relacionado con la prueba. Esta es la convención para los proyectos Node.js en general, y de manera predeterminada, Mocha buscará sus pruebas allí.
+
+Creamos un archivo en el directorio test llamado ldj-client-test.js con el siguiente código.
+``` Node.js 
+ 	​'use strict'​;
+​ 	​const​ assert = require(​'assert'​);
+​ 	​const​ EventEmitter = require(​'events'​).EventEmitter;
+​ 	​const​ LDJClient = require(​'../lib/ldj-client.js'​);
+​ 	
+​ 	describe(​'LDJClient'​, () => {
+​ 	  ​let​ stream = ​null​;
+​ 	  ​let​ client = ​null​;
+​ 	
+​ 	  beforeEach(() => {
+​ 	    stream = ​new​ EventEmitter();
+​ 	    client = ​new​ LDJClient(stream);
+​ 	  });
+​ 	
+​ 	  it(​'should emit a message event from a single data event'​, done => {
+​ 	    client.on(​'message'​, message => {
+​ 	      assert.deepEqual(message, {foo: ​'bar'​});
+​ 	      done();
+​ 	    });
+​ 	    stream.emit(​'data'​, ​'{"foo":"bar"}​​\​​n'​);
+​ 	  });
+​ 	});
+```
+[link código ldj-client-test.js](networking/test/ldj-client-test.js)
+
+Primero, incorporamos los módulos que necesitamos, incluido el módulo de afirmación integrado de Node.js. Esto contiene funciones útiles para comparar valores.
+
+A continuación, utilizamos el método de descripción de Mocha para crear un contexto con nombre para nuestras pruebas con LDJClient. El segundo argumento a describir es una función que contiene el contenido de la prueba.
+
+Dentro de la prueba, primero declaramos dos variables con let: una para la instancia LDJClient, cliente, y otra para el EventEmitter subyacente, secuencia. Luego, en beforeEach, asignamos nuevas instancias a ambas variables.
+
+Finalmente lo llamamos para probar un comportamiento específico de la clase. Dado que nuestra clase es asíncrona por naturaleza, invocamos la devolución de llamada realizada que Mocha proporciona para indicar cuando la prueba ha finalizado.
+
+En el cuerpo de la prueba, configuramos un controlador de eventos de mensajes en el cliente. Este controlador utiliza el método deepEqual para afirmar que la carga útil que recibimos coincide con nuestras expectativas. Por fin le decimos a nuestro flujo sintético que emita un evento de datos. Esto hará que nuestro manejador de mensajes se invoque en unos pocos turnos del bucle de eventos.
+
+#### Ejecutando Pruebas de Mocha de npm
+
+Primero tenemos que agregar una entrada al archivo package.json. En la sección de scripts añadimos lo siguiente:
+
+	"scripts": {
+	  "test": "mocha"
+	},
+
+Las entradas en los scripts son comandos que puede invocar desde la línea de comandos usando npm run.
+
+Y para test en particular (y algunos otros scripts), npm tiene un alias por lo que podemos omitir run y simplemente ejecutar test npm:
+
+ 	$ npm test
+	> @ test ./code/networking
+	> mocha
+	
+	
+	
+	  LDJClient
+	    ✓ should emit a message event from single data event
+	
+	
+	  1 passing (9ms)
 
 
+#### Añadiendo más pruebas asíncronas
 
+Con el siguiente código en su lugar, también podemos actualizar fácilmente el test-json-service.js para que sea una prueba de Mocha. Añadimos en el archivo ldj-client-test.js lo siguiente:
+
+``` Node.js 
+ 	it(​'should emit a message event from split data events'​, done => {
+​ 	  client.on(​'message'​, message => {
+​ 	    assert.deepEqual(message, {foo: ​'bar'​});
+​ 	    done();
+​ 	  });
+​ 	  stream.emit(​'data'​, ​'{"foo":'​);
+​ 	  process.nextTick(() => stream.emit(​'data'​, ​'"bar"}​​\​​n'​));
+​ 	});
+```
+[link código ldj-client-test.js](networking/test/ldj-client-test.js)
+
+Esta prueba divide el mensaje en dos partes para ser emitidas por el flujo una después de la otra. El método process.nextTick integrado de Node.js permite programar el código como devolución de llamada para que se ejecute tan pronto como finalice el código actual.
+
+La diferencia entre setTimeout (callback, 0) y process.nextTick (callback) es que este último se ejecutará antes del próximo giro del bucle de eventos. Por el contrario, setTimeout esperará a que el bucle de eventos gire al menos una vez, permitiendo que se ejecuten otras devoluciones de llamada en cola.
+
+Esta prueba se aprobará independientemente de cuál de estos métodos utilice para retrasar la segunda parte, siempre que la demora sea menor que el tiempo de espera de la prueba de Mocha. De forma predeterminada, este tiempo de espera es de 2 segundos (2000 ms), pero se puede cambiar para toda la suite o para cada prueba.
+
+Para establecer el tiempo de espera de Mocha para toda la ejecución, usemos el indicador --timeout para especificar el tiempo de espera en milisegundos. Si establecemos el tiempo de espera en 0 lo desactivamos por completo.
+
+Para establecer un tiempo de espera específico para una prueba en particular, podemos llamar al método timeout en el objeto devuelto por el método it de Mocha. 
+	Ejemplo:
+``` Node.js
+​ 	it(​'should finish within 5 seconds'​, done => {
+​ 	  setTimeout(done, 4500);  ​// Call done after 4.5 seconds.​
+​ 	}).timeout(5000);
+```
+
+También podemos llamar a timeout en el objeto descrito devuelto para establecer un tiempo de espera predeterminado para un conjunto de pruebas.
