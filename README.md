@@ -281,9 +281,172 @@ Primero veamos cómo Node.js hace la herencia. El siguiente código configura LD
 	​const​ EventEmitter = require(​'events'​).EventEmitter;
 	​class​ LDJClient ​extends​ EventEmitter {
 		​constructor​(stream) {
-			super ();
+			super();
 		}
 	}
 
 ```
+[link al código](networking/lib/ldj-client.js)
+
+LDJClient es una clase, lo que significa que otro código debe llamar a un nuevo LDJClient(stream) para obtener una instancia. El parámetro de flujo es un objeto que emite eventos de datos, como una conexión Socket.
+
+Dentro de la función constructora, primero llamamos a super para invocar la función constructora propia de EventEmitter. Siempre que se esté implementando una clase que amplíe a otra clase, debes comenzar por llamar a super, con los argumentos de constructor apropiados para ello.
+
+JavaScript utiliza la herencia prototípica para establecer la relación entre LDJClient y EventEmitter. La herencia prototípica es poderosa y se puede usar para más que solo clases, pero este uso es cada vez más raro. El código para utilizar "LDJClient" podría tener este aspecto:
+
+``` Node.js 
+​ 	​const​ client = ​new​ LDJClient(networkStream);
+​ 	client.on(​'message'​, message => {
+​ 	  ​// Take action for this message.​
+​ 	});
+``` 
+
+Faltaría implementar la emitición de eventos de mensajes.
+
+#### Eventos de datos de buffering
+
+Es hora de usar el parámetro de flujo en el LDJClient para recuperar y almacenar la entrada. El objetivo es tomar los datos en bruto entrantes del flujo y convertirlos en eventos de mensaje que contengan los objetos de mensaje analizados.
+
+El siguiente código es la actualización del constructor. Anexa fragmentos de datos entrantes a una cadena de búfer en ejecución y explora los finales de línea (que deben ser los límites de los mensajes JSON).
+
+``` Node.js 
+ 	​constructor​(stream) {
+​ 	  ​super​();
+​ 	  ​let​ buffer = ​''​;
+​ 	  stream.on(​'data'​, data => {
+​ 	    buffer += data;
+​ 	    ​let​ boundary = buffer.indexOf(​'​​\​​n'​);
+​ 	    ​while​ (boundary !== -1) {
+​ 	      ​const​ input = buffer.substring(0, boundary);
+​ 	      buffer = buffer.substring(boundary + 1);
+​ 	      ​this​.emit(​'message'​, JSON.parse(input));
+​ 	      boundary = buffer.indexOf(​'​​\​​n'​);
+​ 	    }
+​ 	  });
+​ 	}
+````
+[link código ldj-clients.js](networking/lib/ldj-client.js)
+
+***
+#### Herencia prototípica
+
+Considerando la clase LDJClient que acabamos de hacer. Antes de la disponibilidad de la clase, el constructor y las súper palabras clave, habríamos escrito ese código de la siguiente manera:
+
+	Const EventEmitter = require ('events') .EventEmitter;
+	Const util = require ('util');
+		
+	Función LDJClient (flujo) {
+	EventEmitter.call (este);
+	}
+	
+	Util.inherits (LDJClient, EventEmitter);
+
+LDJClient es una función constructora. Es lo mismo que si hubiesemos usado las palabras clave de clase y constructor. En lugar de super, invocamos la función constructora EventEmitter.
+
+Finalmente, usamos util.inherits para hacer que el objeto principal prototípico de LDJClient sea el prototipo EventEmitter, es decir, si busca una propiedad en un LDJClient y no está allí, EventEmitter es el siguiente lugar para buscar.
+
+Cuándo hacemos una instancia de LDJClient se llama a la instancia del cliente y llamamos a client.on. Aunque el objeto cliente en sí y el prototipo LDJClient carecen de un método on, el motor JavasScript buscará y usará el método on de EventEmitter.
+
+De la misma manera, si llamamos a client.toString, el motor de JavaScript encontrará y utilizará la implementación nativa en el objeto primario prototípico del EventEmitter, Object.
+
+En general, no deberíamos tener que lidiar con este nivel de abstracción. El uso más común de la herencia prototípica es configurar jerarquías de clases.
+
+***
+
+Comenzamos llamando a super, como antes, y luego configuramos una variable de cadena llamada buffer para capturar los datos entrantes. A continuación, usamos stream.on para manejar eventos de datos.
+
+El código dentro del controlador de eventos de datos es denso, pero no es sofisticado. Agregamos datos sin procesar al final del búfer y luego buscamos los mensajes completos desde el frente. Cada cadena de mensaje se envía a través de JSON.parse y, finalmente, es emitida por el LDJClient como un evento de mensaje a través de this.emit.
+
+En este punto, el problema con el que comenzamos (el manejo de mensajes divididos) se resuelve de manera efectiva. Ya sea que aparezcan diez mensajes en un solo evento de datos o solo la mitad de uno, todos precipitarán eventos de mensaje en la instancia de LDJClient.
+
+A continuación, debemos colocar esta clase en un módulo Node.js para que nuestro cliente de nivel superior pueda usarla.
+
+#### Funcionalidad de exportación en un módulo
+
+Pongamos LDJClient como un módulo. Para ello creamos un directorio llamado lib. Este nombre se debe a que hay una convención fuerte en la comunidad Node.js para poner código de soporte en el directorio lib.
+
+``` Node.js 
+ 	​'use strict'​;
+​ 	​const​ EventEmitter = require(​'events'​).EventEmitter;
+​ 	​class​ LDJClient ​extends​ EventEmitter {
+​ 	  ​constructor​(stream) {
+​ 	    super​();
+​ 	    ​let​ buffer = ​''​;
+​ 	    stream.on(​'data'​, data => {
+​ 	      buffer += data;
+​ 	      ​let​ boundary = buffer.indexOf(​'​​\​​n'​);
+​ 	      ​while​ (boundary !== -1) {
+​ 	        ​const​ input = buffer.substring(0, boundary);
+​ 	        buffer = buffer.substring(boundary + 1);
+​ 	        ​this​.emit(​'message'​, JSON.parse(input));
+​ 	        boundary = buffer.indexOf(​'​​\​​n'​);
+​ 	      }
+​ 	    });
+​ 	  }
+​ 	
+​ 	  ​static​ connect(stream) {
+​ 	    ​return​ ​new​ LDJClient(stream);
+​ 	  }
+​ 	}
+​ 	
+​ 	module.exports = LDJClient;```
+
+``` 
+[link código ldj-client.js](networking/lib/ldj-client.js)
+
+El código para este módulo es la combinación de ejemplos anteriores más un método estático: la nueva sección module.exports al final.
+
+Dentro de la definición de clase, después del constructor, estamos agregando un método estático llamado connect. Se adjunta un método estático a la propia clase LDJClient en lugar de aplicarse a instancias individuales. El método de conexión es simplemente una conveniencia para los consumidores de la biblioteca para que no tengan que usar el nuevo operador para crear una instancia de LDJClient.
+
+En un módulo Node.js, el objeto module.exports es el puente entre el código del módulo y el mundo exterior. Todas las propiedades que establezca en las exportaciones estarán disponibles para el código ascendente que se extrae en el módulo. En nuestro caso, estamos exportando la propia clase LDJClient.
+
+El código para usar el módulo LDJ se verá así:
+
+	Const LDJClient = require ('./lib/ldj-client.js');
+	Cliente const = nuevo LDJClient (networkStream);
+
+O, usando el método de conexión, podría verse así:
+
+	Const client = require ('./lib/ldj-client.js') .connect (networkStream);
+
+En ambos casos, la función require toma una ruta real en lugar de los nombres abreviados de módulos que hemos visto anteriormente, como fs, net y util. Cuando se proporciona una ruta que requiere, Node.js intentará resolver la ruta relativa al archivo actual.
+
+#### Importando un Módulo Node.js personalizado
+
+Para utilizar nuestro módulo personalizado modifiquemos el cliente para usarlo en lugar de leer directamente desde el stream TCP.
+
+``` Node.js
+ 	​'use strict'​;
+​ 	​const​ netClient = require(​'net'​).connect({port: 60300});
+​ 	​const​ ldjClient = require(​'./lib/ldj-client.js'​).connect(netClient);
+​ 	
+​ 	ldjClient.on(​'message'​, message => {
+​ 	  ​if​ (message.type === ​'watching'​) {
+​ 	    console.log(​`Now watching: ​${message.file}​`​);
+​ 	  } ​else​ ​if​ (message.type === ​'changed'​) {
+​ 	    console.log(​`File changed: ​${​new​ Date(message.timestamp)}​`​);
+​ 	  } ​else​ {
+​ 	    ​throw​ Error(​`Unrecognized message type: ​${message.type}​`​);
+​ 	  }
+​ 	});
+
+```
+[link código net-watcher-ldj-client.js](networking/net-watcher-ldj-client.js)
+
+Es similar a nuestro net-watcher-json-client de Crear conexiones de cliente de socket. La principal diferencia es que, en lugar de enviar buffers de datos directamente a JSON.parse, este programa se basa en el módulo ldj-client para producir eventos de mensajes.
+
+Para asegurarnos de que resuelve el problema del mensaje dividido, ejecutemos el servicio de prueba:
+
+	$ Node test-json-service.js
+	Servidor de prueba escuchando a los suscriptores ...
+
+Luego, en un terminal diferente, usamos el nuevo cliente para conectarnos a él:
+
+	$ Node net-watcher-ldj-client.js
+	Archivo cambiado: mar 26 de enero de 2016 05:54:59 GMT-0500 (EST)
+
+Ahora tenemos un servidor y un cliente que utilizan un formato de mensaje personalizado para comunicarse de manera confiable. 
+
+
+
 
