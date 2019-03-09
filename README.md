@@ -612,3 +612,41 @@ Para establecer un tiempo de espera específico para una prueba en particular, p
 ```
 
 También podemos llamar a timeout en el objeto descrito devuelto para establecer un tiempo de espera predeterminado para un conjunto de pruebas.
+
+
+## Pruebas y documentación
+
+## Integración continua con Travis 
+
+## Gulpfile 
+
+
+## Ejercicios 
+
+### Testability 
+
+En este capítulo, desarrollamos una prueba unitaria para ejecutar con Mocha. Actualmente, solo prueba un comportamiento de la clase LDJClient, es decir, que emite un evento de mensaje para un mensaje que llegó como un evento de datos único.
+
+Las siguientes preguntas le piden que piense e implemente pruebas adicionales.
+
+- Agregue una prueba de unidad para un solo mensaje que se divide en dos (o más) eventos de datos de la transmisión.
+
+- Agregue una prueba de unidad que pasa en nulo al constructor LDJClient y afirma que se produce un error. Luego haga pasar la prueba modificando el constructor.
+
+
+### Robustness 
+
+El LDJClient desarrollado en este capítulo es algo frágil. Las preguntas en esta sección le piden que amplíe su implementación de manera clave.
+
+- El LDJClient ya maneja el caso en el que una cadena JSON con el formato correcto se divide en varias líneas. ¿Qué sucede si los datos entrantes no tienen una cadena JSON con el formato correcto?
+
+- Escriba un caso de prueba que envíe un evento de datos que no sea JSON. ¿Qué crees que debería pasar en este caso?
+
+- ¿Qué sucede si el último evento de datos completa un mensaje JSON, pero sin la nueva línea final?
+
+- Escriba un caso en el que el objeto de flujo envíe un evento de datos que contenga JSON pero no una nueva línea, seguido de un evento de cierre. Una instancia real de Stream emitirá un evento de cierre cuando se desconecte: actualice LDJClient para escuchar de cerca y procesar el resto del búfer.
+
+- ¿Debería LDJClient emitir un evento cercano para sus oyentes? ¿Bajo que circunstancias?
+
+
+
