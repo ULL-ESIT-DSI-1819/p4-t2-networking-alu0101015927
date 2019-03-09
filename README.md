@@ -276,12 +276,12 @@ Para liberar al programa cliente del peligro de dividir los mensajes JSON, imple
 
 Primero veamos cómo Node.js hace la herencia. El siguiente código configura LDJClient para heredar de EventEmitter.
 
-``` Javascript
+``` Node.js
 
 	​const​ EventEmitter = require(​'events'​).EventEmitter;
 	​class​ LDJClient ​extends​ EventEmitter {
 		​constructor​(stream) {
-			​super​();
+			super ();
 		}
 	}
 
