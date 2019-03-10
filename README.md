@@ -676,6 +676,12 @@ También podemos llamar a timeout en el objeto descrito devuelto para establecer
 
 ## Integración continua con Travis 
 
+Para utilizar Travis primero necisitaremos crearnos una cuenta, además debemos vincularla con nuestra cuenta de github . Una vez hecho activamos el repositorio en travis, para ello debe ser público. 
+Ahora debemos crear el archivo .travis.yml con el nombre del lenguaje y la versión que estamos utilizando. 
+
+Una vez configurado solo debemos hacer una commit de nuestro repositorio y al hacer push travis realizará las prueba mostrandose en verde si han tenido un resultado satisfactorio y en rojo en caso contrario.
+
+
 ## Gulpfile 
 
 El código de nuestro gulpfile.js es el siguiente: 
