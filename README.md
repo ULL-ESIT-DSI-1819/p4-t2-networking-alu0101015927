@@ -115,19 +115,17 @@ Implementaremos puntos finales de cliente y servidor que usen nuestro nuevo prot
 
 Vamos a desarrollar el protocolo de paso de mensajes que utiliza JSON para serializar los mensajes. Cada mensaje es un objeto serializado JSON, que es un hash de pares clave-valor. Aquí hay un ejemplo de objeto JSON con dos pares clave-valor:
 
-	{"Clave": "valor", "anotherKey": "anotherValue"}
+	{"Clave": "valor", "otraClave": "otroValor"}
 
 El servicio net-watcher que hemos estado desarrollando envía dos tipos de mensajes que necesitamos convertir a JSON:
 
- - Cuando se establece la conexión por primera vez, el cliente recibe la cadena.  
- Ahora mira "target.txt" para ver si hay cambios ...
+ - Cuando se establece la conexión por primera vez, el cliente recibe la cadena _Now watching "target.txt" for changes...._
 
- - Cuando el archivo de destino cambia, el cliente recibe una cadena como esta: 
- Archivo cambiado: viernes 18 de diciembre de 2015 05:44:00 GMT-0500 (EST).
+ - Cuando el archivo de destino cambia, el cliente recibe una cadena como esta: _File changed: Fri Dec 18 2015 05:44:00 GMT-0500 (EST)._
 
 Codificaremos el primer tipo de mensaje de esta manera:
 
-	{"Tipo": "viendo", "archivo": "target.txt"}
+ 	{​"type"​:​"watching"​,​"file"​:​"target.txt"​}
 
 El campo de tipo indica que este es un mensaje de observación: el archivo especificado ahora se está viendo.
 
@@ -177,6 +175,10 @@ Cuando tocas el archivo target.txt, verás una salida como esta de tu cliente:
 	
 	{"Tipo": "cambiado", "marca de tiempo": 1450437616760}
 
+
+![imagen net-watcher-json-service.js](src/net-watcher-json-service.png)
+[link código net-watcher-json-service.js](lib/net-watcher-json-service.js)
+
 Ahora estamos listos para escribir un programa cliente que procesa estos mensajes.
 
 
@@ -184,7 +186,23 @@ Ahora estamos listos para escribir un programa cliente que procesa estos mensaje
 
 Escribiremos un programa cliente en Node.js para recibir mensajes JSON de nuestro programa net-watcher-json-service. 
 
-![imagen net-watcher-json-client.js](src/net-watcher-json-client.png)
+``` Node.js 
+'use strict';
+const net = require('net');
+const client = net.connect({port: 60300});
+client.on('data', data => {
+    const message = JSON.parse(data);
+    if (message.type === 'watching') {
+        console.log(`Now watching: ${message.file}`);
+    } else if (message.type === 'changed') {
+        const date = new Date(message.timestamp);
+        console.log(`File changed: ${date}`);
+    } else {
+        console.log(`Unrecognized message type: ${message.type}`);
+    }
+});
+```
+[link código net-watcher-json-client.js](lib/net-watcher-json-client.js)
 
 Este programa utiliza net.connect para crear una conexión de cliente al puerto 60300 de localhost, luego espera los datos. El objeto cliente es un Socket, al igual que la conexión entrante que vimos en el lado del servidor.
 
@@ -198,6 +216,10 @@ Para ejecutar el programa, primero ejecutamos net-watcher-json-service. Luego, e
 Si tocamos el archivo de destino, la salida será como esta:
 
 	​ File changed: Mon Dec 21 2015 05:34:19 GMT-0500 (EST)
+
+
+![imagen net-watcher-json-client.js](src/net-watcher-json-client.png)
+
 
 Este programa funciona pero solo escucha eventos de datos, no eventos finales o eventos de error. Podríamos escuchar estos eventos y tomar las medidas apropiadas cuando ocurren.
 
@@ -226,7 +248,36 @@ Pero un mensaje se puede dividir por la mitad y llegar como dos eventos de datos
 
 Escribir aplicaciones robustas de Node.js requiere manejar problemas de red como entradas divididas, conexiones rotas y datos erróneos. Implementaremos un servicio de prueba que divide un mensaje a propósito en múltiples partes:
 
-![imagen test-json-service.js](src/test-json-service.png)
+``` Node.js 
+'use strict';
+const server = require('net').createServer(connection => {
+  console.log('Subscriber connected.');
+
+  // Two message chunks that together make a whole message.
+  const firstChunk = '{"type":"changed","timesta';
+  const secondChunk = 'mp":1450694370094}\n';
+
+  // Send the first chunk immediately.
+  connection.write(firstChunk);
+
+  // After a short delay, send the other chunk.
+  const timer = setTimeout(() => {
+    connection.write(secondChunk);
+    connection.end();
+  }, 100);
+
+  // Clear timer when the connection ends.
+  connection.on('end', () => {
+    clearTimeout(timer);
+    console.log('Subscriber disconnected.');
+  });
+});
+
+server.listen(60300, function() {
+  console.log('Test server listening for subscribers...');
+});
+```
+[link código test-json-service.js](lib/test-json-service.js)
 
 Lo ejecutaremos de la siguiente manera:
 
@@ -257,6 +308,8 @@ Finalmente, averigüemos qué sucede cuando nos conectamos con el programa clien
 
 El error 'Unexpected token t' nos dice que el mensaje no fue completo y JSON válido. Nuestro cliente intentó enviar la mitad de un mensaje a JSON.parse, que solo espera cadenas JSON completas y con el formato correcto como entrada.
 
+![imagen test-json-service.js](src/test-json-service.png)
+
 Hemos simulado con éxito el caso de un mensaje dividido proveniente del servidor. 
 
 
@@ -286,7 +339,7 @@ Primero veamos cómo Node.js hace la herencia. El siguiente código configura LD
 	}
 
 ```
-[link al código](networking/lib/ldj-client.js)
+[link al código](lib/ldj-client.js)
 
 LDJClient es una clase, lo que significa que otro código debe llamar a un nuevo LDJClient(stream) para obtener una instancia. El parámetro de flujo es un objeto que emite eventos de datos, como una conexión Socket.
 
@@ -325,7 +378,7 @@ El siguiente código es la actualización del constructor. Anexa fragmentos de d
 ​ 	  });
 ​ 	}
 ````
-[link código ldj-clients.js](networking/lib/ldj-client.js)
+[link código ldj-clients.js](lib/ldj-client.js)
 
 ***
 #### Herencia prototípica
@@ -392,7 +445,7 @@ Pongamos LDJClient como un módulo. Para ello creamos un directorio llamado lib.
 ​ 	module.exports = LDJClient;```
 
 ``` 
-[link código ldj-client.js](networking/lib/ldj-client.js)
+[link código ldj-client.js](lib/ldj-client.js)
 
 El código para este módulo es la combinación de ejemplos anteriores más un método estático: la nueva sección module.exports al final.
 
@@ -431,14 +484,14 @@ Para utilizar nuestro módulo personalizado modifiquemos el cliente para usarlo 
 ​ 	});
 
 ```
-[link código net-watcher-ldj-client.js](networking/net-watcher-ldj-client.js)
+[link código net-watcher-ldj-client.js](lib/net-watcher-ldj-client.js)
 
 Es similar a nuestro net-watcher-json-client de Crear conexiones de cliente de socket. La principal diferencia es que, en lugar de enviar buffers de datos directamente a JSON.parse, este programa se basa en el módulo ldj-client para producir eventos de mensajes.
 
 Para asegurarnos de que resuelve el problema del mensaje dividido, ejecutemos el servicio de prueba:
 
 	$ Node test-json-service.js
-	Servidor de prueba escuchando a los suscriptores ...
+	Test server listening for subscribers...
 
 Luego, en un terminal diferente, usamos el nuevo cliente para conectarnos a él:
 
@@ -446,6 +499,8 @@ Luego, en un terminal diferente, usamos el nuevo cliente para conectarnos a él:
 	Archivo cambiado: mar 26 de enero de 2016 05:54:59 GMT-0500 (EST)
 
 Ahora tenemos un servidor y un cliente que utilizan un formato de mensaje personalizado para comunicarse de manera confiable. 
+
+![imagen net-watcher-ldj-client.js](src/net-watcher-ldj-client.png)
 
 ### Desarrollando Pruebas Unitarias con Mocha
 
@@ -542,7 +597,7 @@ Creamos un archivo en el directorio test llamado ldj-client-test.js con el sigui
 ​ 	  });
 ​ 	});
 ```
-[link código ldj-client-test.js](networking/test/ldj-client-test.js)
+[link código ldj-client-test.js](test/ldj-client-test.js)
 
 Primero, incorporamos los módulos que necesitamos, incluido el módulo de afirmación integrado de Node.js. Esto contiene funciones útiles para comparar valores.
 
@@ -593,7 +648,7 @@ Con el siguiente código en su lugar, también podemos actualizar fácilmente el
 ​ 	  process.nextTick(() => stream.emit(​'data'​, ​'"bar"}​​\​​n'​));
 ​ 	});
 ```
-[link código ldj-client-test.js](networking/test/ldj-client-test.js)
+[link código ldj-client-test.js](test/ldj-client-test.js)
 
 Esta prueba divide el mensaje en dos partes para ser emitidas por el flujo una después de la otra. El método process.nextTick integrado de Node.js permite programar el código como devolución de llamada para que se ejecute tan pronto como finalice el código actual.
 
