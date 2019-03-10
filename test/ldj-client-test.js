@@ -26,6 +26,31 @@ describe('LDJClient', () => {
       done();
     });
     stream.emit('data', '{"foo":');
-    process.nextTick(() => stream.emit('data', '"bar"}\n'));
+    process.nextTick(() => stream.emit('data', '"bar"}'));
+    process.nextTick(() => stream.emit('data', '\n'));
   });
+
+  it('should detect an error when we pass in null to the LDJClient constructor', done => {
+    assert.throws(() => {
+      new LDJClient(null);
+    });
+    done();
+  });
+
+  it('should detect that the message\'s format in not JSON', done => {
+    assert.throws(() => {
+      stream.emit('data', '{"foo\n');
+    });
+    done();
+  });
+
+  it('shoul close event when the JSON message don\'t have  newline (\\n)', done => {
+    client.on('message', message => {
+      assert.deepEqual(message, { foo: 'bar'});
+      done();
+    });
+    stream.emit('data', '{"foo": "bar"}');
+    stream.emit('close');
+  });
+
 });

@@ -747,6 +747,7 @@ Una vez configurado solo debemos hacer una commit de nuestro repositorio y al ha
 
 [![Build Status](https://travis-ci.org/ULL-ESIT-DSI-1819/p4-t2-networking-alu0101015927.svg?branch=master)](https://travis-ci.org/ULL-ESIT-DSI-1819/p4-t2-networking-alu0101015927)
 
+![imagen travis](src/travis.png)
 
 ## Gulpfile 
 
