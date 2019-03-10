@@ -678,6 +678,43 @@ También podemos llamar a timeout en el objeto descrito devuelto para establecer
 
 ## Gulpfile 
 
+El código de nuestro gulpfile.js es el siguiente: 
+
+``` Gulpfile.js
+var gulp = require('gulp');
+var shell = require('gulp-shell');
+
+gulp.task('default', function () {
+    console.log('gulp!');
+});
+
+gulp.task("pre-install", shell.task([
+    "npm i -g gulp static-server",
+    "npm install -g nodemon",
+    "npm install -g gulp-shell"
+]));
+
+gulp.task("serve", shell.task("nodemon lib/test-json-service.js target.txt"));
+gulp.task("ser", shell.task("node lib/test-json-service.js target.txt"));
+gulp.task("client", shell.task("node lib/net-watcher-ldj-client.js"));
+
+gulp.task("doc", shell.task("documentation build *.js **/*.js// -f html -o docs"));
+
+gulp.task("test", shell.task("npm test"));
+
+``` 
+En el podemos ejecutar el servidor, el cliente, generar documentación, las prueba...
+
+Para la instalación de los módulos  y dependencias necesarios ejecutamos lo siguiente:
+
+	sudo npm install -g gulp //instalación de gulp 
+	gulp -v //comprobamos que se ha instalado correctamente
+
+	npm install --save-dev gulp //añadimos las dependencias 
+
+	npm install -g gulp-shell //instalacion de gulp-shell
+	npm install --save gulp-shell // añadimos dependencias
+
 
 ## Ejercicios 
 

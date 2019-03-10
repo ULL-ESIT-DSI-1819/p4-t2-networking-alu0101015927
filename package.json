@@ -22,6 +22,12 @@
   },
   "homepage": "https://github.com/ULL-ESIT-DSI-1819/p4-t2-networking-alu0101015927#readme",
   "devDependencies": {
+    "gulp": "^4.0.0",
+    "gulp-concat": "^2.6.1",
+    "gulp-uglify": "^3.0.2",
     "mocha": "3.4.2"
+  },
+  "dependencies": {
+    "gulp-shell": "^0.7.0"
   }
 }
