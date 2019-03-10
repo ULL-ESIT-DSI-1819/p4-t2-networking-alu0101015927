@@ -634,6 +634,9 @@ Y para test en particular (y algunos otros scripts), npm tiene un alias por lo q
 	  1 passing (9ms)
 
 
+[imagen test](src/test.png)
+
+
 #### Añadiendo más pruebas asíncronas
 
 Con el siguiente código en su lugar, también podemos actualizar fácilmente el test-json-service.js para que sea una prueba de Mocha. Añadimos en el archivo ldj-client-test.js lo siguiente:
