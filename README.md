@@ -157,7 +157,7 @@ Implementaremos puntos finales de cliente y servidor que usen nuestro nuevo prot
 Vamos a desarrollar el protocolo de paso de mensajes que utiliza JSON para serializar los mensajes. Cada mensaje es un objeto serializado JSON, que es un hash de pares clave-valor. Aquí hay un ejemplo de objeto JSON con dos pares clave-valor:
 
 ``` json
-	{"key":"value","anotherKey": "anotherValue"}
+	{"key":"value","anotherKey":"anotherValue"}
 ```
 El servicio net-watcher que hemos estado desarrollando envía dos tipos de mensajes que necesitamos convertir a JSON:
 
@@ -176,7 +176,7 @@ El campo de tipo indica que este es un mensaje de observación: el archivo espec
 El segundo tipo de mensaje se codifica de esta manera:
 
 ``` json
-	{"type":"changed,"timestamp": 1358175733785}
+	{"type":"changed","timestamp":1358175733785}
 ```
 
 Aquí el campo de tipo anuncia que el archivo de destino ha cambiado. El campo de marca de tiempo contiene un valor entero que representa el número de milisegundos desde la medianoche del 1 de enero de 1970. Este es un formato de hora fácil para trabajar en JavaScript. Por ejemplo, puede obtener la hora actual en este formato con Date.now.
