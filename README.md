@@ -745,6 +745,8 @@ Ahora debemos crear el archivo .travis.yml con el nombre del lenguaje y la versi
 
 Una vez configurado solo debemos hacer una commit de nuestro repositorio y al hacer push, travis realizará las prueba mostrandose en verde si han tenido un resultado satisfactorio y en rojo en caso contrario.
 
+[![Build Status](https://travis-ci.org/ULL-ESIT-DSI-1819/p4-t2-networking-alu0101015927.svg?branch=master)](https://travis-ci.org/ULL-ESIT-DSI-1819/p4-t2-networking-alu0101015927)
+
 
 ## Gulpfile 
 
@@ -799,7 +801,38 @@ Las siguientes preguntas le piden que piense e implemente pruebas adicionales.
 
 - Agregue una prueba de unidad que pasa en nulo al constructor LDJClient y afirma que se produce un error. Luego haga pasar la prueba modificando el constructor.
 
+_En el archivo ldj-client-test.js añadimos las siguientes pruebas:_
 
+``` Node.js 
+	it('should emit a message event from split data events', done => {
+		client.on('message', message => {
+			assert.deepEqual(message, {foo: 'bar'});
+			done();
+		});
+    	stream.emit('data', '{"foo":');
+    	process.nextTick(() => stream.emit('data', '"bar"}'));
+    	process.nextTick(() => stream.emit('data', '\n'));
+  });
+```
+
+_En esta prueba se envía el mensaje en tres partes, la primera mitad del mensaje, la otra mitad y el salto de línea que indica el final._
+
+``` Node.js
+	it('should detect an error when we pass in null to the LDJClient constructor', done => {
+		assert.throws(() => {
+			new LDJClient(null);
+    		});
+    		done();
+  	});
+ ```
+ 
+ _Comprueba que al pasarle un nulo al constructor de LDJClient nos devuelve un error. Para ello, además debemos de añadir una comprobacion en el constructor como la siguiente:_
+ 
+``` Node.js
+	if(stream === null)
+		throw new Error('Stream NULL');
+```
+	
 ### Robustness 
 
 El LDJClient desarrollado es algo frágil. Las preguntas en esta sección le piden que amplíe su implementación de manera clave.
@@ -814,5 +847,57 @@ El LDJClient desarrollado es algo frágil. Las preguntas en esta sección le pid
 
 - ¿Debería LDJClient emitir un evento cercano para sus oyentes? ¿Bajo que circunstancias?
 
+_Nuestra aplicación espera un formato json para los mensajes por lo tanto al enviar un mensaje que no tenga tal formato se producirá un error. Para hacer la prueba se añadirá el siguiente código:_
 
+``` Node.js
+  	it('should detect that the message\'s format in not JSON', done => {
+    		assert.throws(() => {
+      			stream.emit('data', '"foo":"bar"\n');
+    		});
+    		done();
+  	});
+```
 
+_En el constructor JSON.parse nos dará un error al procesar el mensaje y no encontrarse el formato esperado. Para manejar el error encerraremos la línea en un bloque try y manejaremos el error en un bloque catch de la siguiente manera:_
+
+``` Node.js 
+                try{
+                	this.emit('message', JSON.parse(input));
+                } catch (err) {
+                	throw new Error('No JSON format in message');
+                }
+```
+_Si no ponemos un salto de línea al final del mensaje nuestro cliente se quedaría buscandolo por lo tanto añadiremos un evento de cierre. En el constructor debemos añadir el siguiente código:
+
+``` Node.js
+
+        stream.on('close', () => {
+        	let boundary = buffer.indexOf('}');
+            	if(boundary !== -1){
+                	const input = buffer. substring(0, boundary+1);
+                	try{
+                    		this.emit('message', JSON.parse(input));
+                	} catch (err) {
+                    		throw new Error('No JSON message');
+                	}
+            	}
+            	else 
+                	buffer = '';
+            	this.emit('close');
+        });
+```
+
+_Tomaremos como final de mensaje el cierre de la llave. La prueba de este código sería la siguiente:
+
+``` Node.js
+  	it('shoul close event when the JSON message don\'t have  newline (\\n)', done => {
+    		client.on('message', message => {
+			assert.deepEqual(message, { foo: 'bar'});
+			done();
+    		});
+    		stream.emit('data', '{"foo": "bar"}');
+    		stream.emit('close');
+  	});
+```
+
+_En ella se comprueba que se envía un mensaje sin salto de línea y efectivamente llega, luego se cierra la conección. El cliente debería emitir el evento close cuando sea pedido por el servidor._
