@@ -39,7 +39,7 @@ describe('LDJClient', () => {
 
   it('should detect that the message\'s format in not JSON', done => {
     assert.throws(() => {
-      stream.emit('data', '{"foo\n');
+      stream.emit('data', '"foo":"bar"\n');
     });
     done();
   });
